@@ -364,6 +364,21 @@ Final results
 The server controls the rounds so that players do not move to the next question independently.
 
 ---
+## Screenshots
+
+### Multiplayer Lobby
+<img width="577" height="382" alt="image" src="https://github.com/user-attachments/assets/d715e53d-1f02-45f7-b006-7a807b40bbed" />
+
+### Quiz Round
+<img width="844" height="645" alt="image" src="https://github.com/user-attachments/assets/2574440a-0825-40f8-ad55-2fd63ad317da" />
+
+### Live Leaderboard
+<img width="1903" height="466" alt="image" src="https://github.com/user-attachments/assets/ae735819-ced5-4eea-a33d-103034da4f52" />
+
+
+
+
+---
 
 ## Main Classes
 
