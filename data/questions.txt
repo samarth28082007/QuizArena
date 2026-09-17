@@ -1,0 +1,10 @@
+JAVA|EASY|Which keyword is used for inheritance?|implements|extends|inherits|super|B
+JAVA|EASY|Which method is the starting point of a Java program?|start()|run()|main()|execute()|C
+JAVA|MEDIUM|Which concept allows one class to acquire properties of another class?|Encapsulation|Inheritance|Abstraction|Polymorphism|B
+JAVA|MEDIUM|Which keyword is used to create an object?|class|new|this|object|B
+JAVA|HARD|Which keyword is used to prevent method overriding?|static|private|final|protected|C
+COMPUTER_SCIENCE|EASY|What does CPU stand for?|Central Processing Unit|Computer Personal Unit|Central Program Utility|Control Processing Unit|A
+COMPUTER_SCIENCE|EASY|Which data structure follows FIFO?|Stack|Queue|Tree|Graph|B
+COMPUTER_SCIENCE|MEDIUM|Which data structure follows LIFO?|Queue|Array|Stack|Linked List|C
+TECHNOLOGY|EASY|What does HTML stand for?|Hyper Text Markup Language|High Tech Modern Language|Hyper Transfer Machine Language|Home Tool Markup Language|A
+GENERAL_KNOWLEDGE|EASY|What is the capital of India?|Mumbai|New Delhi|Kolkata|Chennai|B
