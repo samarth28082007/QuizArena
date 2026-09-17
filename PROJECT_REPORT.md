@@ -1,327 +1,142 @@
-# QUIZARENA – REAL-TIME SYNCHRONOUS CLI MULTIPLAYER QUIZ
+QuizArena – Real-Time Synchronized Multiplayer Quiz (CLI)
 
-**Course/Domain:** Java Programming / Software Engineering
-**Technology:** Java 21, Maven, TCP Sockets, JUnit 5
+Course/Domain: Java Programming / Software Engineering
+Tech Stack: Java 21, Maven, TCP Sockets, JUnit 5
 
----
+1. Abstract
 
-## 1. ABSTRACT
+QuizArena is a command-line, multiplayer quiz built in Java around a client-server model: a group of players connect to one central server and work through the same quiz together, in lockstep.
 
-QuizArena is a command-line based multiplayer quiz application developed using Java. The project uses a client-server architecture where multiple players can connect to a central server and participate in the same quiz.
+The idea grew out of a fairly specific annoyance with basic socket-based quizzes — players race ahead at different speeds, and before long nobody's looking at the same question anymore. QuizArena fixes that by leaning on Java's concurrency tools so every player has to finish a round before the game lets anyone move on.
 
-The main purpose of the project is to make a multiplayer quiz more organized and synchronized. In a normal socket-based quiz, different players may answer at different speeds, which can cause them to move to different questions. To solve this problem, QuizArena uses Java's concurrency features to make sure that all players participate in the same round before the game moves forward.
+Beyond the core synchronization piece, the app has a live leaderboard, question categories and difficulty tiers, a per-question timer, and a terminal interface dressed up just enough to stay readable. A set of JUnit 5 tests covers the pieces that matter most.
 
-The application also includes features such as a multiplayer leaderboard, question categories and difficulty levels, a timer for each question, and a simple terminal-based interface. JUnit 5 tests are used to verify important parts of the application.
+More than anything, the project was a hands-on tour through Java networking, multithreading and synchronization, file handling, exception handling, and testing — the kind of things that are hard to really internalize without building something that breaks in interesting ways first.
 
-The project helped us understand Java networking, multithreading, synchronization, file handling, exception handling, and software testing.
+2. Introduction
+2.1 Problem Statement
 
----
+Most beginner quiz programs assume a single player at one terminal, so the moment you add a second player over a socket, new problems show up. The obvious one: if Player A answers in two seconds and Player B takes twenty, what happens to Question 2 in the meantime? Left unchecked, the two players simply drift apart, and the leaderboard stops meaning anything.
 
-# 2. INTRODUCTION
+There's also the matter of players who go quiet — a dropped connection, a closed terminal, someone who just walks away — and the server has to keep the game moving without waiting on them forever.
 
-## 2.1 Problem Statement
+A second, quieter challenge is the conversation between client and server itself. TCP sockets just move bytes; they don't know a question from an answer from a leaderboard update. Without structure imposed on top, it's easy for a client to misread one message as another.
 
-Most basic quiz applications are designed for a single player. Creating a multiplayer quiz using Java sockets introduces several challenges.
+QuizArena was built to work through these problems directly: keep every player on the same question at the same time, and give the server a clear way to manage that shared state.
 
-For example, if one player answers a question quickly while another player takes more time, both players may end up being on different questions. The server also needs to handle players who stop responding or disconnect from the game.
+2.2 Objectives
+Build a multiplayer quiz on top of Java TCP sockets
+Support several players connecting to one server at once
+Keep everyone synchronized through each round of the quiz
+Give every question a timer
+Calculate scores automatically as the game runs
+Show a leaderboard that updates after each round
+Let questions be filtered by category and difficulty
+Handle disconnects and timeouts without stalling the game
+Keep the command-line interface simple and readable
+Cover the important logic with JUnit tests
+3. Technologies Used
 
-Another challenge is communication between the client and server. Since TCP sockets mainly exchange text data, it is important to clearly identify different types of messages such as questions, answers, game updates, and leaderboard information.
+Nothing exotic here — the project leans on the standard Java toolkit rather than external frameworks, which kept the focus on understanding what's actually happening under the hood.
 
-Therefore, QuizArena was developed to provide a simple multiplayer quiz system where players can participate in synchronized rounds while the server manages the overall game.
+Technology	Purpose
+Java 21	Core language for both server and client
+Maven	Project structure and dependency management
+TCP Sockets	Server–client communication
+JUnit 5	Unit testing
+Multithreading	One handler thread per connected player
+CountDownLatch	Keeping players synchronized within a round
+File Handling	Loading questions from a text file
+ANSI Escape Codes	Giving the terminal UI some shape
+4. System Architecture
 
----
+QuizArena follows a fairly conventional client-server split. Every player runs a QuizClient that opens a TCP connection to the server; the server spins up a dedicated ClientHandler thread for each connection and hands the shared game state to a single GameManager. That GameManager is really the heart of the whole thing — it keeps score, holds the question list, and makes sure nobody gets ahead of the group.
+Splitting responsibilities this way keeps each class focused: a ClientHandler doesn't need to know how scoring works, and the GameManager doesn't need to know anything about sockets.
 
-## 2.2 Objectives
+5. Main Components
 
-The main objectives of QuizArena are:
+5.1 QuizServer — The entry point on the server side. It opens a ServerSocket on port 5000 and sits in a loop accepting connections — every time a player joins, it hands that socket off to a new ClientHandler thread and goes back to listening.
 
-* To create a multiplayer quiz using Java TCP sockets.
-* To allow multiple players to connect to the same server.
-* To keep all players synchronized during each quiz round.
-* To provide a timer for answering questions.
-* To calculate player scores automatically.
-* To display a leaderboard after each round.
-* To allow questions to be filtered according to category and difficulty.
-* To handle player disconnections and timeouts properly.
-* To provide a simple and easy-to-use command-line interface.
-* To test important components using JUnit.
+5.2 ClientHandler — One of these runs per connected player, and it's essentially the translator between that player's socket and the rest of the game. Its job covers reading the player's username, pushing questions out, reading back answers, watching for timeouts, forwarding leaderboard updates, and generally keeping that one connection alive and well-behaved.
 
----
+5.3 GameManager — If there's a single class that holds the project together, it's this one. It tracks connected players, the active question set, running scores, who got what right or wrong, and builds the leaderboard after each round. It's also where the synchronization logic lives — GameManager creates and waits on the CountDownLatch that keeps every player's round in step with everyone else's.
 
-# 3. TECHNOLOGIES USED
+5.4 Question — A small data class representing one quiz question: the question text, four answer options, the correct answer, a category, and a difficulty level (EASY, MEDIUM, or HARD).
 
-The following technologies were used to develop the project:
+5.5 Player — Tracks everything about one participant: username, current score, and running counts of correct and incorrect answers. The score field gets touched after every single question.
 
-| Technology        | Purpose                                  |
-| ----------------- | ---------------------------------------- |
-| Java 21           | Main programming language                |
-| Maven             | Project and dependency management        |
-| TCP Sockets       | Communication between server and clients |
-| JUnit 5           | Unit testing                             |
-| Multithreading    | Handling multiple players                |
-| CountDownLatch    | Synchronizing players during rounds      |
-| File Handling     | Loading questions from a text file       |
-| ANSI Escape Codes | Improving terminal appearance            |
+5.6 QuestionLoader — Reads the question bank in from questions.txt at startup. Each line follows a simple pipe-delimited layout:
 
----
-
-# 4. SYSTEM ARCHITECTURE
-
-QuizArena follows a **client-server architecture**.
-
-The server acts as the central point of the application. Players connect to the server using their individual clients. The server manages the players, questions, answers, scores, and game rounds.
-
-### Basic Architecture
-
-```text
-                 +----------------------+
-                 |     Quiz Server      |
-                 |     Port: 5000       |
-                 +----------+-----------+
-                            |
-              +-------------+-------------+
-              |                           |
-              v                           v
-      +---------------+           +---------------+
-      |   Player 1    |           |   Player 2    |
-      | Quiz Client   |           | Quiz Client   |
-      +---------------+           +---------------+
-              \                           /
-               \                         /
-                +-----------------------+
-                |     GameManager       |
-                |                       |
-                | Players               |
-                | Questions             |
-                | Synchronization       |
-                | Scoring               |
-                | Leaderboard            |
-                +-----------------------+
-```
-
-The server creates a separate `ClientHandler` for each connected player. The `GameManager` is responsible for managing the shared game state and keeping the players synchronized.
-
----
-
-# 5. MAIN COMPONENTS
-
-## 5.1 QuizServer
-
-`QuizServer` is the main server program.
-
-It creates a `ServerSocket` on port 5000 and waits for players to connect. Whenever a new player connects, the server creates a separate `ClientHandler` thread for that player.
-
----
-
-## 5.2 ClientHandler
-
-`ClientHandler` manages communication with an individual player.
-
-Its responsibilities include:
-
-* Receiving the player's username.
-* Sending questions to the player.
-* Receiving answers.
-* Handling timeouts.
-* Sending leaderboard updates.
-* Managing communication between the client and server.
-
-Each connected player gets their own handler thread.
-
----
-
-## 5.3 GameManager
-
-`GameManager` is one of the most important components of the project.
-
-It manages the overall game state, including:
-
-* Connected players.
-* Questions being used in the game.
-* Player scores.
-* Correct and incorrect answers.
-* Round synchronization.
-* Leaderboard generation.
-
-It also uses `CountDownLatch` to make sure that players remain synchronized during each question.
-
----
-
-## 5.4 Question
-
-The `Question` class represents a quiz question.
-
-It stores:
-
-* Question text
-* Four options
-* Correct answer
-* Category
-* Difficulty level
-
-The difficulty levels are:
-
-* EASY
-* MEDIUM
-* HARD
-
----
-
-## 5.5 Player
-
-The `Player` class stores information about each player.
-
-It contains:
-
-* Username
-* Score
-* Number of correct answers
-* Number of wrong answers
-
-The score is updated after every question.
-
----
-
-## 5.6 QuestionLoader
-
-`QuestionLoader` loads questions from the `questions.txt` file.
-
-The questions are stored using a pipe-separated format:
-
-```text
 CATEGORY|DIFFICULTY|QUESTION|OPT_A|OPT_B|OPT_C|OPT_D|ANSWER
-```
 
-This makes it easy to add or modify questions without changing the Java source code.
+The upside of this format is that new questions can be dropped in — or existing ones tweaked — without touching a line of Java.
 
----
+5.7 QuizClient — The program each player actually runs. It opens the TCP connection, renders incoming questions, collects the player's answer from the keyboard, sends it back, and displays scores and leaderboard updates as they arrive.
 
-## 5.7 QuizClient
+5.8 QuizApp — A standalone, single-player mode that skips networking entirely — no server, no socket, just one person and the quiz, still with a timer on each question. Handy for testing question content without needing a second terminal open.
 
-`QuizClient` is the program used by players to connect to the server.
+6. Multiplayer Game Flow
+Step 1  -> Server starts, listens on port 5000
+Step 2  -> Players connect via QuizClient (TCP)
+Step 3  -> Lobby: first player is host, waits for 2+ players
+Step 4  -> Host configures category, difficulty, time limit
+Step 5  -> Countdown, game starts
+Step 6  -> Question round: same question + timer to everyone
+Step 7  -> Answers collected (late = timeout)
+Step 8  -> Scores calculated (+10 per correct answer)
+Step 9  -> Leaderboard broadcast to all clients
+Step 10 -> Next round begins  ---> loops back to Step 6
+              (repeats until questions run out)
 
-It:
+Step 1 — Server Starts. The server binds to port 5000 and begins listening for incoming connections.
 
-* Connects to the server through TCP.
-* Displays questions.
-* Takes answers from the user.
-* Sends answers to the server.
-* Displays scores and leaderboard updates.
+Step 2 — Players Connect. Each player launches QuizClient, which opens a socket to the server.
 
----
+Step 3 — Lobby. Whoever connects first is treated as the host. The game stays in the lobby until at least two players are present.
 
-## 5.8 QuizApp
+Step 4 — Game Configuration. The host chooses the category, difficulty, and time limit for the session; these settings apply to the whole game.
 
-`QuizApp` provides a standalone single-player version of the quiz.
+Step 5 — Game Starts. Once enough players have joined, the server runs a short countdown and the first question goes out.
 
-Unlike the multiplayer mode, it does not require a server or network connection. It also includes a timer for each question.
+Step 6 — Question Round. Every player receives the exact same question at the exact same moment, with an identical time limit to answer it.
 
----
+Step 7 — Answer Collection. Players send answers back as they decide. Anyone who runs out the clock is simply recorded as a timeout.
 
-# 6. MULTIPLAYER GAME FLOW
+Step 8 — Score Calculation. A correct answer is worth 10 points; wrong answers and timeouts add nothing.
 
-The multiplayer game works approximately as follows:
+Step 9 — Leaderboard. Once the round closes, updated scores are calculated and the refreshed leaderboard goes out to every client.
 
-### Step 1 – Server Starts
+Step 10 — Next Round. Only after the current round is fully wrapped up does the server move on — which is really the whole point of the synchronization design.
 
-The server starts listening on port 5000.
+7. Synchronization
 
-### Step 2 – Players Connect
+This is arguably the feature the whole project was built to prove out. Without some form of coordination, a quick player could clear Question 1 and be looking at Question 2 while a slower player is still reading Question 1 — at which point the "multiplayer" part stops meaning much.
 
-Players start their `QuizClient` and connect to the server.
+QuizArena solves this with a CountDownLatch shared across the round: every player submission counts it down, and a background timer counts it down too if the time limit is reached first. The server simply blocks on that latch, so the next question can't be released until either everyone has answered or the clock has run out for anyone who hasn't.
 
-### Step 3 – Lobby
-
-The first player is treated as the host. The game waits until at least two players have joined.
-
-### Step 4 – Game Configuration
-
-The host can select options such as:
-
-* Question category
-* Difficulty
-* Time limit
-
-The selected settings are then used for the game.
-
-### Step 5 – Game Starts
-
-After the required number of players have joined, the server starts the game and gives players a short countdown.
-
-### Step 6 – Question Round
-
-The same question is sent to all players.
-
-Every player gets the same amount of time to answer.
-
-### Step 7 – Answer Collection
-
-Players submit their answers to the server.
-
-If a player does not answer before the timer expires, the answer is treated as a timeout.
-
-### Step 8 – Score Calculation
-
-Correct answers give the player **10 points**.
-
-Wrong answers and timeouts do not give points.
-
-### Step 9 – Leaderboard
-
-After the round is completed, the server calculates the updated scores and sends the leaderboard to all players.
-
-### Step 10 – Next Round
-
-The server moves to the next question only after the current round has been completed.
-
-This prevents players from getting out of sync.
-
----
-
-# 7. SYNCHRONIZATION
-
-Synchronization is one of the main features of QuizArena.
-
-Without synchronization, a fast player could answer Question 1 and immediately receive Question 2 while another player is still answering Question 1.
-
-To prevent this, the project uses Java's `CountDownLatch`.
-
-The basic idea is:
-
-```text
 Question 1
     |
-    +---- Player 1 answers
+    +---- Player 1 answers .......... (latch--)
     |
-    +---- Player 2 answers
+    +---- Player 2 answers .......... (latch--)
     |
-    +---- Player 3 answers
-    |
-    v
-All players finished / Timer expired
+    +---- Player 3: timer expires .... (latch--)
     |
     v
-Leaderboard
+latch.await() releases
+    |
+    v
+Leaderboard sent
     |
     v
 Question 2
-```
 
-The server waits for all active players to submit their answers or for the question timer to expire before moving to the next round.
+The practical effect: fast and slow players alike always see the leaderboard, and the next question, at the same time.
 
-This keeps the multiplayer experience fair and synchronized.
+8. Leaderboard
 
----
+After each question, QuizArena recalculates standings and pushes them out immediately — players don't have to wait until the game ends to see where they stand. Scores drive the primary sort, and the number of correct answers acts as a tiebreaker.
 
-# 8. LEADERBOARD
-
-After every question, QuizArena displays an updated leaderboard.
-
-The leaderboard is sorted according to the player's current score. The number of correct answers can also be used to determine the ranking when players have the same score.
-
-Example:
-
-```text
 ================================
           LEADERBOARD
 ================================
@@ -333,48 +148,22 @@ Rank   Player       Score   Correct
 3      Aryan         20       2
 
 ================================
-```
+9. Message Protocol
 
-This allows players to see their current position during the game rather than waiting until the end.
+Plain TCP just moves bytes back and forth — it has no concept of what any of those bytes mean. To keep both sides honest about what they're sending, QuizArena tags every message with a short prefix identifying its type:
 
----
-
-# 9. MESSAGE PROTOCOL
-
-To make communication between the server and clients easier to manage, the project uses structured message prefixes.
-
-For example:
-
-```text
 [WELCOME]
 [QUESTION_START]
 [PROMPT_ANSWER]
 [LOBBY_UPDATE]
 [LEADERBOARD]
-```
 
-Instead of treating every message as ordinary text, the client can identify what type of message it has received.
+Rather than the client guessing at what a raw line of text represents, it checks the prefix first and routes the message accordingly. A small addition, but it removes a whole class of bugs around misinterpreted messages.
 
-This makes the communication more organized and reduces the chances of incorrect message handling.
+10. User Interface
 
----
+QuizArena is a terminal app at heart, but a little formatting effort goes a long way. ANSI escape codes give headings, questions, timers, scores, and leaderboards enough visual separation to stay readable even in a plain console window.
 
-# 10. USER INTERFACE
-
-Although QuizArena is a command-line application, some effort has been made to make the interface easier to understand.
-
-ANSI escape codes and formatted text are used for:
-
-* Game headings
-* Questions
-* Timers
-* Scores
-* Leaderboards
-* Game status messages
-
-For example:
-
-```text
 ========================================
               QUIZ ARENA
 ========================================
@@ -392,130 +181,60 @@ C. C++
 D. JavaScript
 
 Enter your answer:
-```
 
-The goal is to keep the interface simple while making important information easy to identify.
+The goal was never a flashy terminal UI — just one where a player can glance at the screen and immediately tell what's being asked, what their score is, and how much time is left.
 
----
+11. Testing
 
-# 11. TESTING
+JUnit 5 covers the logic that would be hardest to catch by eye during a live game — sorting, message parsing, and file loading — and the suite runs through Maven with a single mvn test.
 
-JUnit 5 was used to test important parts of the project.
+Test	Purpose	Result
+GameManagerTest	Player sorting and leaderboard ordering	Passed
+ProtocolTest	Message formatting and payload extraction	Passed
+QuestionLoaderTest	Loading questions from file	Passed
+QuestionLoaderTest	Category and difficulty filtering	Passed
 
-The tests were executed using Maven:
+Running these before wiring everything together over sockets made it much easier to tell whether a bug lived in the game logic or in the networking layer — a distinction that matters a lot once threads get involved.
 
-```text
-mvn test
-```
+12. Challenges Faced
 
-The following components were tested:
+12.1 Synchronizing Players — Getting every player to land on the same question at the same time was, unsurprisingly, the hardest part of the build. CountDownLatch turned out to be the right tool once the problem was framed correctly — as a barrier the whole round has to clear, not as something to manage per player.
 
-| Test                 | Purpose                                         | Result |
-| -------------------- | ----------------------------------------------- | ------ |
-| `GameManagerTest`    | Tests player sorting and leaderboard order      | Passed |
-| `ProtocolTest`       | Tests message formatting and payload extraction | Passed |
-| `QuestionLoaderTest` | Tests loading questions from the file           | Passed |
-| `QuestionLoaderTest` | Tests category and difficulty filtering         | Passed |
+12.2 Handling Timeouts — A player who never answers can't be allowed to stall the game indefinitely, so the server needed a way to move on after a fixed window regardless of who has or hasn't responded.
 
-Testing helped identify problems in individual components before running the complete multiplayer application.
+12.3 Multiple Client Connections — Serving several players at once meant giving each one an independent handler thread rather than trying to process everyone sequentially on a single thread.
 
----
+12.4 Maintaining Shared Game State — Scores, the player list, and the current question all get touched from multiple threads at once, so keeping that state consistent took care — this is where a fair number of the trickier bugs showed up during development.
 
-# 12. CHALLENGES FACED
+12.5 Network Communication — Making sure the client and server agreed on what a given message meant was solved by introducing the tagged protocol described earlier, rather than leaving message interpretation implicit.
 
-During development, some of the main challenges were:
+13. Future Improvements
 
-### 12.1 Synchronizing Players
+13.1 Persistent Leaderboard — Right now scores live only in memory for the duration of a session. Adding SQLite or MySQL would let rankings survive past a server restart.
 
-Making sure that every player stays on the same question was one of the biggest challenges. This was handled using synchronization mechanisms such as `CountDownLatch`.
+13.2 More Game Modes — Classic Quiz, Speed Round, Survival Mode, Team Battle, Knockout Mode.
 
-### 12.2 Handling Timeouts
+13.3 Better Scoring System — A flat 10 points per correct answer is simple but doesn't reward speed:
 
-A player may not answer within the given time. The server therefore needs to continue the game without waiting indefinitely.
+Fast answer     -> 15 points
+Normal answer   -> 10 points
+Last-second     -> 5 points
+Wrong answer    -> 0 points
 
-### 12.3 Multiple Client Connections
+13.4 Web-Based Interface — The terminal client could eventually be swapped for, or paired with, a browser-based front end — the server's game logic wouldn't need to change much to support it.
 
-The server needs to communicate with multiple players at the same time. Separate handler threads are used for individual clients.
+13.5 Authentication — Letting players create accounts would open the door to persistent stats and achievements across sessions.
 
-### 12.4 Maintaining Shared Game State
+13.6 Question Bank Expansion — Programming, Science, History, Sports, Movies, General Knowledge, Artificial Intelligence.
 
-Scores, player lists, questions, and answers are shared between multiple threads. Proper synchronization is required to avoid inconsistent data.
+13.7 Admin Panel — An interface for adding, editing, or removing questions would beat hand-editing questions.txt directly, especially as the question bank grows.
 
-### 12.5 Network Communication
+13.8 Reconnection Support — A player who briefly drops off the network shouldn't necessarily be booted from the game — allowing a reconnect back into the same session would make the whole thing more forgiving to play.
 
-The client and server must correctly understand the messages being exchanged. The protocol structure was introduced to make this communication easier to manage.
+14. Conclusion
 
----
+QuizArena set out to answer a fairly narrow question — how do you keep several players honestly in sync during a live quiz — and ended up touching most of the core ideas in Java networking and concurrency along the way: sockets, threads, a shared mutable game state, and the coordination primitives needed to manage all three safely.
 
-# 13. FUTURE IMPROVEMENTS
+The timer, category filtering, live scoring, and leaderboard make it feel like an actual game rather than a protocol demo, but the synchronization logic is really the piece the rest of the project was built around.
 
-There are several features that can be added to QuizArena in the future.
-
-### 13.1 Persistent Leaderboard
-
-A database such as SQLite or MySQL can be added so that player scores and rankings are stored even after the server is closed.
-
-### 13.2 More Game Modes
-
-Different game modes could be introduced, such as:
-
-* Classic Quiz
-* Speed Round
-* Survival Mode
-* Team Battle
-* Knockout Mode
-
-### 13.3 Better Scoring System
-
-Instead of giving every correct answer the same 10 points, the score could depend on how quickly the player answers.
-
-For example:
-
-```text
-Fast answer     → 15 points
-Normal answer   → 10 points
-Last-second     → 5 points
-Wrong answer    → 0 points
-```
-
-### 13.4 Web-Based Interface
-
-The current CLI interface could later be replaced or extended with a web interface. Players could join the game through a browser while the Java server continues to manage the game.
-
-### 13.5 Authentication
-
-Players could create accounts and log in before joining the game. This would allow their statistics and achievements to be stored.
-
-### 13.6 Question Bank Expansion
-
-The question database can be expanded with more categories such as:
-
-* Programming
-* Science
-* History
-* Sports
-* Movies
-* General Knowledge
-* Artificial Intelligence
-
-### 13.7 Admin Panel
-
-An administrator could be given an interface to add, remove, or edit questions without directly modifying the text file.
-
-### 13.8 Reconnection Support
-
-If a player temporarily loses their network connection, the system could allow them to reconnect to the same game instead of removing them immediately.
-
----
-
-# 14. CONCLUSION
-
-QuizArena is a Java-based multiplayer quiz application that demonstrates how networking and multithreading can be used to build an interactive multiplayer system.
-
-The project uses TCP sockets for communication between the server and clients and uses Java concurrency features to synchronize players during each question. Features such as timers, question filtering, scoring, and a live leaderboard make the application more interactive than a basic console quiz.
-
-Working on this project provided practical experience with Java socket programming, multithreading, synchronization, file handling, exception handling, testing, and basic software architecture.
-
-The current version provides a strong foundation that can later be extended into a database-backed or web-based multiplayer quiz platform.
-
-
+More than the finished program, what stuck was the practical experience: socket programming, multithreading, synchronization, file handling, exception handling, and the testing habits that make all of the above easier to trust. The current version is a reasonably solid base to build on, whether the next step is a persistent database, a web front end, or both.
