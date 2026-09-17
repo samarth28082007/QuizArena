@@ -36,28 +36,6 @@ Traditional command-line quiz applications operate strictly in single-player or 
 QuizArena follows a Client-Server Architecture driven by a Centralized Coordinator (`GameManager`):
 
 ```
-+-----------------------------------------------------------------+
-|                       QuizServer (Port 5000)                   |
-|  - Listens for TCP Connections                                  |
-|  - Spawns ClientHandler Threads                                 |
-+-----------------------------------------------------------------+
-                                |
-             +------------------+------------------+
-             |                                     |
-             v                                     v
-   +--------------------+                +--------------------+
-   | ClientHandler (P1) |                | ClientHandler (P2) |
-   |  - Room Host       |                |  - Player          |
-   +--------------------+                +--------------------+
-             \                                     /
-              v                                   v
-+-----------------------------------------------------------------+
-|                          GameManager                            |
-|  - Shared Questions Pool & Filters (Category / Difficulty)     |
-|  - Round Barrier Synchronization (CountDownLatch)               |
-|  - Real-Time Global Leaderboard Sorting                        |
-+-----------------------------------------------------------------+
-```
 
 ### 3.2 Key Classes and Responsibilities
 
